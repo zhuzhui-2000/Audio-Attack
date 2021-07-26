@@ -1,0 +1,19 @@
+lm:
+  decoder_type: greedy
+  lm_path: ''
+  top_paths: 1
+  alpha: 0.0
+  beta: 0.0
+  cutoff_top_n: 40
+  cutoff_prob: 1.0
+  beam_width: 10
+  lm_workers: 4
+model:
+  precision: 32
+  cuda: true
+  model_path: librispeech_pretrained_v3.ckpt
+test_path: data/libri_test_clean_manifest.json
+verbose: true
+save_output: ''
+batch_size: 20
+num_workers: 4

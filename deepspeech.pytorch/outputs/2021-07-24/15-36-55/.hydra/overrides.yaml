@@ -1,0 +1,3 @@
+- model.model_path=librispeech_pretrained_v3.ckpt
+- test_path=data/command_test.json
+- plot=True
