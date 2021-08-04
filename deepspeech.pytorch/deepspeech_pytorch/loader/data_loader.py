@@ -3,6 +3,7 @@ import math
 import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from unicodedata import east_asian_width
 
 import librosa
 import numpy as np
@@ -23,6 +24,7 @@ def load_audio(path):
         sound = sound.squeeze()
     else:
         sound = sound.mean(axis=0)  # multiple channels, average
+    
     return sound.numpy()
 
 
@@ -110,16 +112,22 @@ class SpectrogramParser(AudioParser):
             add_noise = np.random.binomial(1, self.aug_conf.noise_prob)
             if add_noise:
                 y = self.noise_injector.inject_noise(y)
+        
         n_fft = int(self.sample_rate * self.window_size)
         win_length = n_fft
         hop_length = int(self.sample_rate * self.window_stride)
         # STFT
+        #specgram = torchaudio.transforms.MelSpectrogram(n_fft=n_fft,win_length=win_length,hop_length=hop_length,sample_rate=self.sample_rate)(torch.from_numpy(y))
         D = librosa.stft(y, n_fft=n_fft, hop_length=hop_length,
                          win_length=win_length, window=self.window)
         spect, phase = librosa.magphase(D)
         # S = log(S+1)
         spect = np.log1p(spect)
+        
         spect = torch.FloatTensor(spect)
+        #print('wav:', y.shape)
+        #print('spect:' , spect.size())
+        #print((spect-specgram).mean())
         if self.normalize:
             mean = spect.mean()
             std = spect.std()
@@ -137,6 +145,8 @@ class SpectrogramParser(AudioParser):
 
 class SpectrogramDataset(Dataset, SpectrogramParser):
     def __init__(self,
+                 plot:bool,
+                 attack: bool,
                  input_word: str,
                  target_word: str,
                  audio_conf: SpectConfig,
@@ -157,11 +167,13 @@ class SpectrogramDataset(Dataset, SpectrogramParser):
         :param normalize: Apply standard mean and deviation normalization to audio tensor
         :param augmentation_conf(Optional): Config containing the augmentation parameters
         """
+        
         self.ids = self._parse_input(input_path)
         self.size = len(self.ids)
         self.input_word = input_word
         self.target_word = target_word
-        
+        self.plot = plot
+        self.attack = attack
         self.labels_map = dict([(labels[i], i) for i in range(len(labels))])
         super(SpectrogramDataset, self).__init__(audio_conf, normalize, aug_cfg)
 
@@ -197,9 +209,15 @@ class SpectrogramDataset(Dataset, SpectrogramParser):
     def parse_transcript(self, transcript_path):
         with open(transcript_path, 'r', encoding='utf8') as transcript_file:
             transcript = transcript_file.read().replace('\n', '')
-        if(transcript==self.input_word):
+        if (self.plot == False):
+            transcript_list = transcript.split(" ")
+            for i,each_word in enumerate(transcript_list):
+                
+                if each_word == self.input_word:
+                    
+                    transcript_list[i] = self.target_word
+                transcript = " ".join(transcript_list)
             
-            transcript = self.target_word
         transcript = list(filter(None, [self.labels_map.get(x) for x in list(transcript)]))
         
         return transcript
