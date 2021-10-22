@@ -1,6 +1,7 @@
 import hydra
 import torch
 import numpy
+import torch.optim as optim
 
 from deepspeech_pytorch.configs.inference_config import EvalConfig
 from deepspeech_pytorch.decoder import GreedyDecoder
@@ -48,9 +49,9 @@ def evaluate(cfg: EvalConfig):
     #tensor_input_word = test_dataset.parse_target_word(cfg.input_word)
     #tensor_target_word = test_dataset.parse_target_word(cfg.target_word)
     #print(tensor_input_word)
-    delta = numpy.load("/home/mmc-2018012484/deepspeech.pytorch/outputs/2021-07-27/00-29-19/delta.npy")
-    delta = delta.reshape(1,1,delta.shape[0],delta.shape[1])
-    delta = torch.tensor(delta).to(device)
+    #delta = numpy.load("/home/mmc-2018012484/deepspeech.pytorch/outputs/2021-07-27/00-29-19/delta.npy")
+    #delta = delta.reshape(1,1,delta.shape[0],delta.shape[1])
+    #delta = torch.tensor(delta).to(device)
     
 
     if (cfg.attack):

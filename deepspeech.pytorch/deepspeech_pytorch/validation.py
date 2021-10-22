@@ -8,6 +8,7 @@ import torch.optim as optim
 import numpy
 
 from deepspeech_pytorch.decoder import Decoder, GreedyDecoder
+from wavenet import WaveNet
 
 from pytorch_lightning.metrics import Metric
 import Levenshtein as Lev
@@ -100,11 +101,6 @@ class My_CTCLoss(My_Loss):
         >>> loss = ctc_loss(input, target, input_lengths, target_lengths)
         >>> loss.backward()
         >>>
-        >>>
-        >>> # Target are to be un-padded
-        >>> T = 50      # Input sequence length
-        >>> C = 20      # Number of classes (including blank)
-        >>> N = 16      # Batch size
         >>>
         >>> # Initialize random batch of input vectors, for *size = (T,N,C)
         >>> input = torch.randn(T, N, C).log_softmax(2).detach().requires_grad_()
@@ -314,6 +310,7 @@ def run_evaluation(test_loader,
                    device: torch.device,
                    target_decoder: Decoder,
                    precision: int):
+    print(model)
     model.eval()
     loss_ = []
     wer = WordErrorRate(
@@ -326,7 +323,7 @@ def run_evaluation(test_loader,
     )
     for i, (batch) in tqdm(enumerate(test_loader), total=len(test_loader)):
         inputs, targets, input_percentages, target_sizes = batch
-        #print(inputs.size())
+        print(inputs.size())
         input_sizes = input_percentages.mul_(int(inputs.size(3))).int()
         inputs = inputs.to(device)
 
@@ -334,7 +331,7 @@ def run_evaluation(test_loader,
             out, output_sizes = model(inputs, input_sizes)
         decoded_output, _ = decoder.decode(out, output_sizes)
         criterion = CTCLoss(blank=model.labels.index('_'), reduction='mean', zero_infinity=True)
-        print(out.size(),output_sizes,target_sizes)
+        #print(out.size(),output_sizes,target_sizes)
         wer.update(
             preds=out,
             preds_sizes=output_sizes,
@@ -432,6 +429,13 @@ def attack_test_evaluation(input_word, target_word, delta,
     return wer.compute(), cer.compute()
 
 
+def set_bn_eval(m):
+    classname = m.__class__.__name__
+    print(classname)
+    if classname.find('batch_norm') != -1:
+        #print("batch_norm")
+        m.eval()
+
 def train_evaluation(input_word, target_word, attack_length,
                    test_loader,
                    model,
@@ -439,6 +443,7 @@ def train_evaluation(input_word, target_word, attack_length,
                    device: torch.device,
                    target_decoder: Decoder,
                    precision: int):
+    
     
     criterion = CTCLoss(blank=model.labels.index('_'), reduction='mean', zero_infinity=True)
     model.train()
@@ -465,6 +470,7 @@ def train_evaluation(input_word, target_word, attack_length,
             optimizer = optim.Adam([delta])
             print(delta.size())   
         
+        #delta = WaveNet(1,1,32,32,10,4,4)
         delta_ = delta.repeat(inputs.size(0),1,1,1)
         delta_ = delta_.to("cpu")
         delta_ = torch.cat((delta_,torch.zeros(inputs.size(0),1,inputs.size(2),1)),3)
@@ -524,6 +530,7 @@ def train_evaluation(input_word, target_word, attack_length,
         
         loss += 4 * delta.abs().mean()
         loss_.append(loss)
+        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
